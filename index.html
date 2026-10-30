@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Крестик">
+<meta name="theme-color" content="#b3202d">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Крестик</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: окно схемы (пан/зум) — главное; справа (на телефоне — ниже) панель: картинка, настройки, легенда ниток */
+:root{
+  --bg:#eceee8;
+  --surface:#fafbf7;
+  --soft:#e2e6dd;
+  --line:#cfd4c8;
+  --fg:#1c2330;
+  --muted:#5a6370;
+  --accent:#b3202d;
+  --accent-fg:#ffffff;
+  --accent-soft:#f6dfe0;
+  --fabric:#f4f2ea;
+  --f-display:"Yeseva One", Georgia, "Times New Roman", serif;
+  --f-body:"Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13161b; --surface:#1b1f26; --soft:#20252d; --line:#2f353f;
+    --fg:#e6e8eb; --muted:#9aa3ae; --accent:#ff6673; --accent-fg:#1b0c0e; --accent-soft:#3a1f24;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13161b; --surface:#1b1f26; --soft:#20252d; --line:#2f353f;
+  --fg:#e6e8eb; --muted:#9aa3ae; --accent:#ff6673; --accent-fg:#1b0c0e; --accent-soft:#3a1f24;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px 24px}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.top h1{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;letter-spacing:.01em;line-height:1}
+.top h1 span{color:var(--accent)}
+.top p{margin:0;color:var(--muted);font-size:13px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;flex-direction:column;gap:8px;min-width:0;position:sticky;top:12px}
+@media (max-width:900px){.stage{position:static}}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;background:var(--soft);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 11px;border-radius:9px;cursor:pointer;font-weight:600;font-size:14px;min-height:36px}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.icon{width:36px;padding:0;font-size:18px;line-height:1}
+.primary{background:var(--accent);color:var(--accent-fg);border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;width:100%;font-size:15px}
+.primary:disabled{opacity:.6}
+.spacer{flex:1}
+.viewer{position:relative;height:calc(100vh - 150px);min-height:340px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--soft)}
+@media (max-width:900px){.viewer{height:62vh}}
+.viewer canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.viewer.stitch canvas{cursor:crosshair}
+.status{font-size:13px;color:var(--muted);min-height:1.45em;font-variant-numeric:tabular-nums}
+.status b{color:var(--fg);font-family:var(--f-mono);font-weight:600}
+.progress{display:flex;align-items:center;gap:10px;font-size:13px;font-variant-numeric:tabular-nums}
+.progress .track{flex:1;height:8px;background:var(--soft);border-radius:4px;overflow:hidden;min-width:80px}
+.progress .fill{height:100%;background:var(--accent);width:0;transition:width .2s}
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.card h2{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.src{display:flex;gap:12px;align-items:center}
+.thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;background:var(--soft);border:1px solid var(--line);flex:none}
+.src-info{display:flex;flex-direction:column;gap:6px;min-width:0}
+.src-info small{color:var(--muted);font-size:12px}
+.file{display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;cursor:pointer;user-select:none;-webkit-user-select:none}
+.file:active{background:var(--soft)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#file:focus-visible + *, .file:focus-within{outline:2px solid var(--accent)}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{display:flex;justify-content:space-between;font-size:14px;font-weight:600}
+.field label output{font-family:var(--f-mono);font-weight:600;color:var(--accent)}
+.field input[type=range]{width:100%;accent-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+select{width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg)}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.check input{margin-top:3px;accent-color:var(--accent)}
+.check small{display:block;color:var(--muted);font-size:12px}
+.confirm{background:var(--accent-soft);border-radius:10px;padding:10px;font-size:14px;display:flex;flex-direction:column;gap:8px}
+.confirm div{display:flex;gap:8px;flex-wrap:wrap}
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.summary div{display:flex;flex-direction:column}
+.summary b{font-family:var(--f-mono);font-size:16px;font-variant-numeric:tabular-nums}
+.summary span{font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-direction:column;gap:2px;margin:0 -6px}
+.leg{display:grid;grid-template-columns:30px 54px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px;border-radius:8px;border:1px solid transparent;background:transparent;text-align:left;cursor:pointer;width:100%}
+.leg:hover{background:var(--soft)}
+.leg[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.sw{width:30px;height:30px;border-radius:6px;display:grid;place-items:center;font-weight:700;font-size:15px;border:1px solid rgba(0,0,0,.15);font-family:system-ui,-apple-system,sans-serif}
+.code{font-family:var(--f-mono);font-weight:600;font-size:14px}
+.nm{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;flex-direction:column;gap:3px}
+.nm i{font-style:normal;color:var(--fg);font-size:13px}
+.mini{height:4px;background:var(--soft);border-radius:2px;overflow:hidden}
+.mini > span{display:block;height:100%;background:var(--accent)}
+.num{font-family:var(--f-mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.num small{display:block;color:var(--muted);font-size:11px}
+.note{font-size:12px;color:var(--muted);margin:0}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:2px 7px;border-radius:5px}
+.sheet{position:fixed;inset:0;background:rgba(10,12,16,.72);z-index:20;display:flex;flex-direction:column;align-items:center;gap:12px;
+  padding:calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));overflow:auto}
+.sheet .box{background:var(--surface);border-radius:12px;padding:14px;max-width:900px;width:100%;display:flex;flex-direction:column;gap:10px}
+.sheet img{width:100%;height:auto;border-radius:6px;background:#fff;-webkit-touch-callout:default}
+.sheet .bar{justify-content:space-between}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Крест<span>и</span>к</h1>
+  <p>Схема для вышивки по вашей картинке, цвета ниток DMC</p>
+</header>
+
+<div class="app">
+  <section class="stage" aria-label="Схема">
+    <div class="bar">
+      <div class="seg" role="group" aria-label="Режим">
+        <button id="mChart" aria-pressed="true">Схема</button>
+        <button id="mStitch" aria-pressed="false">Вышивать</button>
+      </div>
+      <div class="seg" id="viewSeg" role="group" aria-label="Вид">
+        <button data-v="both" aria-pressed="true">Цвет+знак</button>
+        <button data-v="color" aria-pressed="false">Цвет</button>
+        <button data-v="symbol" aria-pressed="false">Знаки</button>
+      </div>
+      <button class="btn" id="brush" aria-pressed="false" hidden title="Проводите пальцем, чтобы отмечать подряд">Кисть</button>
+      <button class="btn" id="undo" hidden disabled>Отменить</button>
+      <span class="spacer"></span>
+      <button class="btn icon" id="zOut" aria-label="Уменьшить">−</button>
+      <button class="btn icon" id="zIn" aria-label="Увеличить">+</button>
+      <button class="btn" id="zFit">Вписать</button>
+    </div>
+    <div class="progress" id="prog" hidden>
+      <div class="track"><div class="fill" id="progFill"></div></div>
+      <span id="progTxt">0 из 0</span>
+    </div>
+    <div class="viewer" id="viewer"><canvas id="cv"></canvas></div>
+    <div class="status" id="status">Перетаскивайте схему, сводите два пальца для масштаба.</div>
+  </section>
+
+  <aside class="panel">
+    <div class="card">
+      <h2>Картинка</h2>
+      <div class="src">
+        <img class="thumb" id="thumb" alt="Исходная картинка">
+        <div class="src-info">
+          <span id="srcName"><span class="badge">Пример</span></span>
+          <label class="file btn" for="file">Выбрать фото</label><input type="file" id="file" accept="image/*" class="vh">
+          <small>Лучше всего: чёткий объект, простой фон</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Настройки схемы</h2>
+      <div class="field">
+        <label for="wIn">Ширина в крестиках <output id="wOut">80</output></label>
+        <input type="range" id="wIn" min="20" max="200" step="5" value="80">
+      </div>
+      <div class="field">
+        <label for="kIn">Количество цветов <output id="kOut">16</output></label>
+        <input type="range" id="kIn" min="2" max="40" step="1" value="16">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="aida">Канва</label>
+          <select id="aida">
+            <option value="11">Аида 11</option>
+            <option value="14" selected>Аида 14</option>
+            <option value="16">Аида 16</option>
+            <option value="18">Аида 18</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="strands">Сложений нити</label>
+          <select id="strands">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="clean" checked><span>Убирать одиночные крестики<small>Меньше «конфетти» — вышивать проще</small></span></label>
+      <div class="confirm" id="confirm" hidden>
+        <span>Новая схема сотрёт отметки о вышитых крестиках.</span>
+        <div><button class="btn" id="cYes">Построить заново</button><button class="btn" id="cNo">Отмена</button></div>
+      </div>
+      <button class="primary" id="gen">Построить схему</button>
+    </div>
+
+    <div class="card">
+      <h2>Нитки</h2>
+      <div class="summary">
+        <div><b id="sStitch">—</b><span>крестиков</span></div>
+        <div><b id="sSize">—</b><span>размер, см</span></div>
+        <div><b id="sColors">—</b><span>цветов</span></div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <p class="note">Нажмите на цвет, чтобы выделить его на схеме. Мотки посчитаны примерно: 8 м в мотке, с запасом 25%. Цвета на экране приблизительны — сверяйте с картой цветов DMC.</p>
+      <button class="btn" id="exportBtn">Схема картинкой</button>
+    </div>
+  </aside>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="box">
+    <div class="bar"><strong>Схема с легендой</strong><button class="btn" id="sheetClose">Закрыть</button></div>
+    <p class="note">Нажмите и удерживайте картинку, чтобы сохранить её в «Фото» или отправить на печать. На компьютере: правая кнопка мыши → «Сохранить изображение».</p>
+    <img id="sheetImg" alt="Схема вышивки">
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+// ---------- DMC palette (approximate sRGB) ----------
+const DMC_RAW = "B5200,255,255,255,Snow White;White,252,251,248,White;Ecru,240,234,218,Ecru;310,0,0,0,Black;3799,66,66,66,Pewter Gray Vy Dk;413,86,86,86,Pewter Gray Dk;317,108,108,108,Pewter Gray;414,140,140,140,Steel Gray Dk;318,171,171,171,Steel Gray Lt;415,211,211,214,Pearl Gray;762,236,236,236,Pearl Gray Vy Lt;"+
+"535,99,100,88,Ash Gray Vy Lt;646,135,134,123,Beaver Gray Dk;647,176,176,166,Beaver Gray Med;648,188,180,172,Beaver Gray Lt;3072,230,232,232,Beaver Gray Vy Lt;3021,79,75,65,Brown Gray Vy Dk;3022,142,144,120,Brown Gray Med;3023,177,170,151,Brown Gray Lt;3024,235,234,231,Brown Gray Vy Lt;"+
+"321,199,43,59,Red;304,183,31,51,Red Med;498,167,19,43,Red Dk;815,135,7,31,Garnet Med;814,123,0,27,Garnet Dk;666,227,29,66,Bright Red;326,179,59,75,Rose Vy Dk;309,186,74,74,Rose Dk;335,238,84,110,Rose;899,242,118,136,Rose Med;3326,251,173,180,Rose Lt;776,252,176,185,Pink Med;818,255,223,217,Baby Pink;3708,255,173,188,Melon Lt;"+
+"350,224,72,72,Coral Med;351,233,106,103,Coral;352,253,156,151,Coral Lt;353,254,215,204,Peach;946,235,99,7,Burnt Orange Med;947,255,123,77,Burnt Orange;740,255,139,0,Tangerine;741,255,163,43,Tangerine Med;742,255,191,87,Tangerine Lt;743,254,211,118,Yellow Med;744,255,231,147,Yellow Pale;745,255,233,173,Yellow Lt Pale;"+
+"307,253,237,84,Lemon;444,255,214,0,Lemon Dk;973,255,227,0,Canary Bright;726,253,215,85,Topaz Lt;725,255,200,64,Topaz Med Lt;783,206,145,36,Topaz Med;782,174,119,32,Topaz Dk;781,162,109,32,Topaz Vy Dk;729,208,165,62,Old Gold Med;680,188,141,14,Old Gold Dk;676,229,206,151,Old Gold Lt;677,245,236,203,Old Gold Vy Lt;"+
+"3820,223,182,95,Straw Dk;3821,243,206,117,Straw;3822,246,220,152,Straw Lt;712,255,251,239,Cream;739,248,228,200,Tan Ult Vy Lt;738,236,204,158,Tan Vy Lt;437,228,187,142,Tan Lt;436,203,144,81,Tan;435,184,119,72,Brown Vy Lt;434,152,94,51,Brown Lt;433,122,69,31,Brown Med;801,101,57,25,Coffee Brown Dk;898,73,42,19,Coffee Brown Vy Dk;938,54,31,14,Coffee Brown Ult Dk;3371,30,17,8,Black Brown;"+
+"975,145,79,18,Golden Brown Dk;976,194,129,66,Golden Brown Med;977,220,156,86,Golden Brown Lt;3776,207,121,57,Mahogany Lt;300,111,47,0,Mahogany Vy Dk;400,143,67,15,Mahogany Dk;301,179,95,43,Mahogany Med;402,247,167,119,Mahogany Vy Lt;922,226,115,35,Copper Lt;920,172,84,20,Copper Med;919,166,69,16,Red Copper;"+
+"3064,196,142,112,Desert Sand;3773,182,117,82,Desert Sand Med;950,238,211,196,Desert Sand Lt;945,251,213,187,Tawny;948,254,231,218,Peach Vy Lt;754,247,203,191,Peach Lt;758,238,170,155,Terra Cotta Vy Lt;3778,217,137,120,Terra Cotta Lt;356,197,106,91,Terra Cotta Med;3830,185,85,68,Terra Cotta;355,152,68,54,Terra Cotta Dk;632,135,85,57,Desert Sand Ult Vy Dk;407,187,129,97,Desert Sand Dk;3772,160,108,80,Desert Sand Vy Dk;"+
+"842,209,186,161,Beige Brown Vy Lt;841,182,155,126,Beige Brown Lt;840,154,124,92,Beige Brown Med;839,103,85,65,Beige Brown Dk;838,89,73,55,Beige Brown Vy Dk;3033,227,216,204,Mocha Brown Vy Lt;3782,210,188,166,Mocha Brown Lt;3790,127,106,85,Beige Gray Ult Dk;822,231,226,211,Beige Gray Lt;644,221,216,203,Beige Gray Med;642,164,152,120,Beige Gray Dk;640,133,123,97,Beige Gray Vy Dk;3865,249,247,241,Winter White;3866,250,246,240,Mocha Ult Vy Lt;"+
+"699,5,101,23,Green;700,7,115,27,Green Bright;701,63,143,41,Green Lt;702,71,167,47,Kelly Green;703,123,181,71,Chartreuse;704,158,207,52,Chartreuse Bright;772,228,236,212,Yellow Green Vy Lt;3348,204,217,177,Yellow Green Lt;3347,113,147,92,Yellow Green Med;3346,64,106,57,Hunter Green;3345,27,89,21,Hunter Green Dk;895,27,83,0,Hunter Green Vy Dk;"+
+"890,23,73,35,Pistachio Ult Dk;319,32,95,46,Pistachio Vy Dk;367,97,122,82,Pistachio Dk;320,105,136,90,Pistachio Med;368,166,194,152,Pistachio Lt;369,215,237,204,Pistachio Vy Lt;986,64,82,48,Forest Green Vy Dk;987,88,113,65,Forest Green Dk;988,115,139,91,Forest Green Med;989,141,166,117,Forest Green;"+
+"471,174,191,121,Avocado Vy Lt;470,148,171,79,Avocado Lt;469,114,132,60,Avocado;937,98,113,51,Avocado Med;936,76,88,38,Avocado Vy Dk;934,49,57,25,Avocado Black;3011,137,138,88,Khaki Green Dk;3012,166,167,93,Khaki Green Med;3013,185,185,130,Khaki Green Lt;"+
+"909,21,111,73,Emerald Vy Dk;910,24,126,86,Emerald Dk;911,24,144,101,Emerald Med;912,27,157,107,Emerald Lt;954,136,186,145,Nile Green;955,162,214,173,Nile Green Lt;3814,80,139,125,Aquamarine;991,71,119,105,Aquamarine Dk;992,111,174,159,Aquamarine Lt;993,144,192,180,Aquamarine Vy Lt;3847,52,125,117,Teal Green Dk;3848,85,147,146,Teal Green Med;3849,82,179,164,Teal Green Lt;"+
+"775,217,235,241,Baby Blue Vy Lt;3325,184,210,230,Baby Blue Lt;3755,147,180,206,Baby Blue;334,115,159,193,Baby Blue Med;322,90,143,184,Baby Blue Dk;312,53,102,139,Baby Blue Vy Dk;311,28,80,102,Navy Blue Med;336,37,59,115,Navy Blue;823,33,48,99,Navy Blue Dk;939,27,40,83,Navy Blue Vy Dk;"+
+"3753,219,226,233,Antique Blue Ult Vy Lt;3752,199,209,219,Antique Blue Vy Lt;932,162,181,198,Antique Blue Lt;931,106,133,158,Antique Blue Med;930,69,92,113,Antique Blue Dk;3750,56,76,94,Antique Blue Vy Dk;800,192,204,222,Delft Blue Pale;809,148,168,198,Delft Blue;799,116,142,182,Delft Blue Med;798,70,106,142,Delft Blue Dk;797,19,71,125,Royal Blue;796,17,65,109,Royal Blue Dk;820,14,54,92,Royal Blue Vy Dk;"+
+"3846,6,227,230,Turquoise Bright Lt;3843,20,170,208,Electric Blue;996,48,194,236,Electric Blue Med;995,38,150,182,Electric Blue Dk;598,144,195,204,Turquoise Lt;597,91,163,179,Turquoise;807,100,171,186,Peacock Blue;3809,63,124,133,Turquoise Vy Dk;3808,54,105,112,Turquoise Ult Vy Dk;"+
+"211,227,203,227,Lavender Lt;210,195,159,195,Lavender Med;209,163,123,167,Lavender Dk;208,131,91,139,Lavender Vy Dk;554,219,179,203,Violet Lt;553,163,99,139,Violet;552,128,58,107,Violet Med;550,92,24,78,Violet Vy Dk;327,99,54,102,Violet Dk;341,183,191,221,Blue Violet Lt;340,173,167,199,Blue Violet Med;3746,119,107,152,Blue Violet Dk;333,92,84,120,Blue Violet Vy Dk;"+
+"3609,244,174,213,Plum Ult Lt;3608,234,156,196,Plum Vy Lt;3607,197,73,137,Plum Lt;718,156,36,98,Plum;917,155,19,89,Plum Med;915,130,0,67,Plum Dk;605,255,192,205,Cranberry Vy Lt;604,255,176,190,Cranberry Lt;603,255,164,190,Cranberry;602,226,72,116,Cranberry Med;601,209,40,106,Cranberry Dk;600,205,47,99,Cranberry Vy Dk;"+
+"3689,251,191,194,Mauve Lt;3688,231,169,172,Mauve Med;3687,201,107,112,Mauve;3685,136,21,49,Mauve Vy Dk;225,255,223,213,Shell Pink Ult Vy Lt;224,235,183,175,Shell Pink Vy Lt;223,204,132,124,Shell Pink Lt;3722,188,108,100,Shell Pink Med;3721,161,75,81,Shell Pink Dk;778,223,179,187,Antique Mauve Vy Lt;316,183,115,127,Antique Mauve Med;315,129,73,82,Antique Mauve Md Dk;3802,113,65,73,Antique Mauve Vy Dk";
+
+function lin(c){c/=255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4)}
+function f3(t){return t>0.008856?Math.cbrt(t):(7.787*t+16/116)}
+function lab(r,g,b){
+  const R=lin(r),G=lin(g),B=lin(b);
+  const x=f3((R*0.4124+G*0.3576+B*0.1805)/0.95047), y=f3(R*0.2126+G*0.7152+B*0.0722), z=f3((R*0.0193+G*0.1192+B*0.9505)/1.08883);
+  return [116*y-16, 500*(x-y), 200*(y-z)];
+}
+const DMC = DMC_RAW.split(";").map(s=>{const p=s.split(",");const r=+p[1],g=+p[2],b=+p[3];return {code:p[0],name:p[4],rgb:[r,g,b],lab:lab(r,g,b)}});
+const DMC_BY = {}; DMC.forEach(d=>DMC_BY[d.code]=d);
+const SYMS = ["■","●","▲","◆","★","✚","✖","○","□","△","◇","☆","♥","♦","♣","♠","▼","◐","◑","⬟","A","B","C","D","E","F","G","H","K","M","N","P","R","S","T","U","V","X","Y","Z"];
+const FABRIC=[244,242,234];
+
+// ---------- state ----------
+const S = {W:0,H:0,grid:null,done:null,colors:[],mode:"chart",view:"both",hl:-1,brush:false,cs:10,ox:0,oy:0,undo:[]};
+let srcImg=null, srcData=null, srcName="";
+const $=id=>document.getElementById(id);
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}}};
+
+function decorate(c){
+  const [r,g,b]=c.rgb;
+  c.css=`rgb(${r},${g},${b})`;
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  c.ink=lum>0.55?"#1a1a1a":"#ffffff";
+  const t=[0,1,2].map(i=>Math.round(c.rgb[i]*0.42+FABRIC[i]*0.58));
+  c.tint=`rgb(${t[0]},${t[1]},${t[2]})`;
+  const tl=(0.299*t[0]+0.587*t[1]+0.114*t[2])/255;
+  c.tintInk=tl>0.5?"#222":"#fff";
+  return c;
+}
+
+// ---------- pattern generation ----------
+function downscale(img,w,h){
+  let cw=img.naturalWidth||img.width, ch=img.naturalHeight||img.height, src=img;
+  while(cw/2>w*2 && ch/2>h*2){
+    cw=Math.round(cw/2); ch=Math.round(ch/2);
+    const c=document.createElement("canvas"); c.width=cw; c.height=ch;
+    const x=c.getContext("2d"); x.imageSmoothingQuality="high"; x.drawImage(src,0,0,cw,ch); src=c;
+  }
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h); x.imageSmoothingQuality="high"; x.drawImage(src,0,0,w,h);
+  return x.getImageData(0,0,w,h).data;
+}
+function d2(a,i,b){const x=a[i]-b[0],y=a[i+1]-b[1],z=a[i+2]-b[2];return x*x+y*y+z*z}
+
+function generate(img,opt){
+  const iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  const W=opt.w, H=Math.max(4,Math.min(300,Math.round(W*ih/iw)));
+  const px=downscale(img,W,H), n=W*H;
+  const L=new Float32Array(n*3);
+  for(let i=0;i<n;i++){const l=lab(px[i*4],px[i*4+1],px[i*4+2]);L[i*3]=l[0];L[i*3+1]=l[1];L[i*3+2]=l[2];}
+  // k-means in Lab on a sample
+  let seed=12345; const rnd=()=>((seed=(seed*1103515245+12345)>>>0)/4294967296);
+  const step=Math.max(1,Math.floor(n/30000)), idx=[]; for(let i=0;i<n;i+=step) idx.push(i*3);
+  const K=Math.min(opt.k, idx.length);
+  const C=[]; C.push(Array.from(L.subarray(idx[0],idx[0]+3)));
+  const md=new Float32Array(idx.length).fill(1e12);
+  while(C.length<K){
+    const last=C[C.length-1]; let sum=0;
+    for(let j=0;j<idx.length;j++){const d=d2(L,idx[j],last); if(d<md[j]) md[j]=d; sum+=md[j];}
+    if(sum===0) break;
+    let t=rnd()*sum, j=0; for(;j<idx.length-1;j++){t-=md[j]; if(t<=0) break;}
+    C.push(Array.from(L.subarray(idx[j],idx[j]+3)));
+  }
+  const asg=new Int32Array(idx.length), size=new Array(C.length).fill(0);
+  for(let it=0;it<12;it++){
+    const acc=C.map(()=>[0,0,0,0]);
+    for(let j=0;j<idx.length;j++){let best=0,bd=1e12;for(let c=0;c<C.length;c++){const d=d2(L,idx[j],C[c]);if(d<bd){bd=d;best=c}}asg[j]=best;const a=acc[best];a[0]+=L[idx[j]];a[1]+=L[idx[j]+1];a[2]+=L[idx[j]+2];a[3]++;}
+    for(let c=0;c<C.length;c++){size[c]=acc[c][3]; if(acc[c][3]) C[c]=[acc[c][0]/acc[c][3],acc[c][1]/acc[c][3],acc[c][2]/acc[c][3]];}
+  }
+  // centroids -> unique DMC
+  const order=C.map((c,i)=>i).sort((a,b)=>size[b]-size[a]); const used=new Set(), chosen=[];
+  for(const ci of order){
+    if(!size[ci]) continue;
+    const ranked=DMC.map((d,i)=>[i,(d.lab[0]-C[ci][0])**2+(d.lab[1]-C[ci][1])**2+(d.lab[2]-C[ci][2])**2]).sort((a,b)=>a[1]-b[1]);
+    const pick=ranked.find(r=>!used.has(r[0])); if(pick){used.add(pick[0]);chosen.push(DMC[pick[0]]);}
+  }
+  // map all pixels
+  let grid=new Uint8Array(n);
+  for(let i=0;i<n;i++){let best=0,bd=1e12;for(let c=0;c<chosen.length;c++){const d=d2(L,i*3,chosen[c].lab);if(d<bd){bd=d;best=c}}grid[i]=best;}
+  if(opt.clean){
+    const g2=grid.slice(), cnt=new Int32Array(chosen.length);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const v=grid[y*W+x]; let same=false; cnt.fill(0);
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=W||yy>=H)continue;const u=grid[yy*W+xx];if(u===v)same=true;cnt[u]++;}
+      if(!same){let bi=v,bc=0;for(let c=0;c<cnt.length;c++)if(cnt[c]>bc){bc=cnt[c];bi=c}g2[y*W+x]=bi;}
+    }
+    grid=g2;
+  }
+  // sort colours by use, drop unused
+  const counts=new Int32Array(chosen.length); for(let i=0;i<n;i++)counts[grid[i]]++;
+  const keep=chosen.map((d,i)=>i).filter(i=>counts[i]>0).sort((a,b)=>counts[b]-counts[a]);
+  const remap=new Uint8Array(chosen.length); keep.forEach((o,ni)=>remap[o]=ni);
+  for(let i=0;i<n;i++)grid[i]=remap[grid[i]];
+  const colors=keep.map((o,ni)=>decorate({code:chosen[o].code,name:chosen[o].name,rgb:chosen[o].rgb,sym:SYMS[ni%SYMS.length]}));
+  return {W,H,grid,colors};
+}
+
+// ---------- persistence ----------
+function u8b64(u){let s="";for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+function b64u8(b){const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u}
+let saveT=0;
+function saveProject(){clearTimeout(saveT);saveT=setTimeout(()=>{
+  if(!S.grid) return;
+  store.set("krestik.project",JSON.stringify({W:S.W,H:S.H,codes:S.colors.map(c=>c.code),grid:u8b64(S.grid),done:u8b64(S.done)}));
+},300)}
+function saveSettings(){store.set("krestik.settings",JSON.stringify(readOpts()))}
+function loadProject(){
+  const raw=store.get("krestik.project"); if(!raw) return false;
+  try{
+    const p=JSON.parse(raw);
+    S.W=p.W;S.H=p.H;S.grid=b64u8(p.grid);S.done=b64u8(p.done);
+    S.colors=p.codes.map((c,i)=>{const d=DMC_BY[c];return decorate({code:d.code,name:d.name,rgb:d.rgb,sym:SYMS[i%SYMS.length]})});
+    return S.grid.length===S.W*S.H;
+  }catch(e){return false}
+}
+
+// ---------- sample image ----------
+function sampleImage(){
+  const c=document.createElement("canvas"); c.width=400; c.height=300; const x=c.getContext("2d");
+  const g=x.createLinearGradient(0,0,0,200); g.addColorStop(0,"#7fb6e0"); g.addColorStop(1,"#f5d9a8"); x.fillStyle=g; x.fillRect(0,0,400,300);
+  x.fillStyle="#f6b335"; x.beginPath(); x.arc(300,80,34,0,7); x.fill();
+  x.fillStyle="#8193ab"; x.beginPath(); x.moveTo(0,190); x.lineTo(70,110); x.lineTo(130,170); x.lineTo(210,90); x.lineTo(290,160); x.lineTo(350,120); x.lineTo(400,150); x.lineTo(400,220); x.lineTo(0,220); x.fill();
+  x.fillStyle="#4c6a57"; x.beginPath(); x.moveTo(0,230); x.lineTo(110,140); x.lineTo(190,210); x.lineTo(260,150); x.lineTo(400,230); x.lineTo(400,300); x.lineTo(0,300); x.fill();
+  x.fillStyle="#ffffff"; x.beginPath(); x.moveTo(110,140); x.lineTo(132,158); x.lineTo(118,156); x.lineTo(104,166); x.lineTo(92,155); x.fill();
+  x.beginPath(); x.moveTo(260,150); x.lineTo(282,165); x.lineTo(266,163); x.lineTo(250,170); x.lineTo(243,163); x.fill();
+  x.fillStyle="#6aa84f"; x.fillRect(0,250,400,50);
+  [[40,268],[90,282],[150,265],[230,280],[300,270],[360,286]].forEach(([a,b])=>{x.fillStyle="#2f6b2a";x.fillRect(a-1,b,3,14);x.fillStyle="#d7263d";x.beginPath();x.arc(a,b,7,0,7);x.fill();x.fillStyle="#2b1a12";x.beginPath();x.arc(a,b,2.5,0,7);x.fill();});
+  return c;
+}
+
+// ---------- viewer ----------
+const cv=$("cv"), ctx=cv.getContext("2d"), viewer=$("viewer");
+let vw=0,vh=0,dpr=1; const RUL=18;
+let theme={};
+function readTheme(){const cs=getComputedStyle(document.documentElement);["--soft","--surface","--muted","--accent","--line"].forEach(k=>theme[k]=cs.getPropertyValue(k).trim())}
+let fitted=false;
+function resize(){const r=viewer.getBoundingClientRect();vw=r.width;vh=r.height;if(!fitted&&S.grid&&vw>0){fitted=true;dpr=window.devicePixelRatio||1;cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);fit();return;}dpr=window.devicePixelRatio||1;cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);clampView();draw();}
+function fit(){if(!S.grid)return;const aw=vw-RUL-16,ah=vh-RUL-16;S.cs=Math.max(1.5,Math.min(48,Math.min(aw/S.W,ah/S.H)));S.ox=RUL+8+(aw-S.W*S.cs)/2;S.oy=RUL+8+(ah-S.H*S.cs)/2;draw();}
+function clampView(){if(!S.grid)return;const pw=S.W*S.cs,ph=S.H*S.cs;S.ox=Math.min(vw-60,Math.max(60-pw,S.ox));S.oy=Math.min(vh-60,Math.max(60-ph,S.oy));}
+function zoomAt(px,py,k){const n=Math.max(1.5,Math.min(64,S.cs*k)),f=n/S.cs;S.ox=px-(px-S.ox)*f;S.oy=py-(py-S.oy)*f;S.cs=n;clampView();draw();}
+
+let raf=0; function draw(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;render()})}
+function render(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle=theme["--soft"]||"#e2e6dd"; ctx.fillRect(0,0,vw,vh);
+  if(!S.grid) return;
+  const {W,H,cs,ox,oy,grid,done,colors}=S, st=S.mode==="stitch", hl=S.hl;
+  const c0=Math.max(0,Math.floor((RUL-ox)/cs)), c1=Math.min(W-1,Math.floor((vw-ox)/cs));
+  const r0=Math.max(0,Math.floor((RUL-oy)/cs)), r1=Math.min(H-1,Math.floor((vh-oy)/cs));
+  const showSym=cs>=9 && (st || S.view!=="color");
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.font=`700 ${Math.floor(cs*0.6)}px system-ui,-apple-system,"Segoe UI",sans-serif`;
+  ctx.lineCap="round";
+  for(let y=r0;y<=r1;y++){
+    const yy=oy+y*cs;
+    for(let x=c0;x<=c1;x++){
+      const i=y*W+x, col=colors[grid[i]], xx=ox+x*cs;
+      if(st){
+        if(done[i]){
+          ctx.fillStyle="rgb(244,242,234)"; ctx.fillRect(xx,yy,cs+0.5,cs+0.5);
+          ctx.strokeStyle=col.css; ctx.lineWidth=Math.max(1,cs*0.22);
+          const a=cs*0.2,b=cs*0.8; ctx.beginPath(); ctx.moveTo(xx+a,yy+a); ctx.lineTo(xx+b,yy+b); ctx.moveTo(xx+b,yy+a); ctx.lineTo(xx+a,yy+b); ctx.stroke();
+        }else{
+          ctx.fillStyle=col.tint; ctx.fillRect(xx,yy,cs+0.5,cs+0.5);
+          if(showSym){ctx.fillStyle=col.tintInk; ctx.fillText(col.sym,xx+cs/2,yy+cs/2+cs*0.04);}
+        }
+      }else{
+        ctx.fillStyle=S.view==="symbol"?"#ffffff":col.css; ctx.fillRect(xx,yy,cs+0.5,cs+0.5);
+        if(showSym){ctx.fillStyle=S.view==="symbol"?"#1d1d1d":col.ink; ctx.fillText(col.sym,xx+cs/2,yy+cs/2+cs*0.04);}
+      }
+      if(hl>=0 && grid[i]!==hl){ctx.fillStyle="rgba(244,242,234,0.82)"; ctx.fillRect(xx,yy,cs+0.5,cs+0.5);}
+    }
+  }
+  // grid
+  const x0=ox+c0*cs,x1=ox+(c1+1)*cs,y0=oy+r0*cs,y1=oy+(r1+1)*cs;
+  if(cs>=4){
+    ctx.strokeStyle="rgba(0,0,0,0.16)"; ctx.lineWidth=1/dpr; ctx.beginPath();
+    for(let x=c0;x<=c1+1;x++){const p=Math.round((ox+x*cs)*dpr)/dpr+0.5/dpr;ctx.moveTo(p,y0);ctx.lineTo(p,y1);}
+    for(let y=r0;y<=r1+1;y++){const p=Math.round((oy+y*cs)*dpr)/dpr+0.5/dpr;ctx.moveTo(x0,p);ctx.lineTo(x1,p);}
+    ctx.stroke();
+  }
+  ctx.strokeStyle="rgba(0,0,0,0.55)"; ctx.lineWidth=cs>=4?1.4:1; ctx.beginPath();
+  for(let x=Math.ceil(c0/10)*10;x<=c1+1;x+=10){const p=ox+x*cs;ctx.moveTo(p,y0);ctx.lineTo(p,y1);}
+  for(let y=Math.ceil(r0/10)*10;y<=r1+1;y+=10){const p=oy+y*cs;ctx.moveTo(x0,p);ctx.lineTo(x1,p);}
+  ctx.stroke();
+  ctx.strokeStyle="rgba(0,0,0,0.7)"; ctx.lineWidth=1.5; ctx.strokeRect(ox,oy,W*cs,H*cs);
+  // rulers
+  ctx.fillStyle=theme["--surface"]||"#fafbf7"; ctx.fillRect(0,0,vw,RUL); ctx.fillRect(0,0,RUL,vh);
+  ctx.fillStyle=theme["--muted"]||"#5a6370"; ctx.font=`500 10px "JetBrains Mono",ui-monospace,Menlo,monospace`;
+  const stepN=cs*10>=26?10:cs*20>=26?20:50;
+  for(let x=stepN;x<=W;x+=stepN){const p=ox+x*cs;if(p>RUL+8&&p<vw-4)ctx.fillText(String(x),p,RUL/2+1);}
+  ctx.save(); ctx.translate(RUL/2,0); ctx.rotate(-Math.PI/2);
+  for(let y=stepN;y<=H;y+=stepN){const p=oy+y*cs;if(p>RUL+8&&p<vh-4)ctx.fillText(String(y),-p,1);}
+  ctx.restore();
+  // centre arrows
+  ctx.fillStyle=theme["--accent"]||"#b3202d";
+  const cx=ox+W*cs/2, cy=oy+H*cs/2;
+  if(cx>RUL&&cx<vw){ctx.beginPath();ctx.moveTo(cx-5,2);ctx.lineTo(cx+5,2);ctx.lineTo(cx,RUL-3);ctx.fill();}
+  if(cy>RUL&&cy<vh){ctx.beginPath();ctx.moveTo(2,cy-5);ctx.lineTo(2,cy+5);ctx.lineTo(RUL-3,cy);ctx.fill();}
+  ctx.fillStyle=theme["--surface"]||"#fafbf7"; ctx.fillRect(0,0,RUL,RUL);
+}
+
+// ---------- pointer interaction ----------
+const ptrs=new Map(); let gest=null;
+function local(e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+function cellAt(p){const x=Math.floor((p.x-S.ox)/S.cs),y=Math.floor((p.y-S.oy)/S.cs);if(x<0||y<0||x>=S.W||y>=S.H||p.x<RUL||p.y<RUL)return -1;return y*S.W+x}
+function paint(i){if(i<0||!gest||gest.painted.has(i))return;gest.painted.add(i);gest.op.cells.push(i);gest.op.prev.push(S.done[i]);S.done[i]=gest.val;draw();}
+cv.addEventListener("pointerdown",e=>{
+  if(!S.grid)return; cv.setPointerCapture(e.pointerId); const p=local(e); ptrs.set(e.pointerId,p);
+  if(ptrs.size===1){
+    gest={type:"one",sx:p.x,sy:p.y,lx:p.x,ly:p.y,moved:false};
+    if(S.mode==="stitch"&&S.brush){const i=cellAt(p);if(i>=0){gest.type="paint";gest.val=S.done[i]?0:1;gest.painted=new Set();gest.op={cells:[],prev:[]};paint(i);}}
+  }else if(ptrs.size===2){
+    if(gest&&gest.type==="paint")finishPaint();
+    const [a,b]=[...ptrs.values()];
+    gest={type:"pinch",d:Math.hypot(a.x-b.x,a.y-b.y)||1,mx:(a.x+b.x)/2,my:(a.y+b.y)/2,cs:S.cs,ox:S.ox,oy:S.oy};
+  }
+});
+cv.addEventListener("pointermove",e=>{
+  if(!ptrs.has(e.pointerId)||!gest)return; const p=local(e); ptrs.set(e.pointerId,p);
+  if(gest.type==="pinch"&&ptrs.size>=2){
+    const [a,b]=[...ptrs.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y)||1, mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    const n=Math.max(1.5,Math.min(64,gest.cs*d/gest.d)), f=n/gest.cs;
+    S.cs=n; S.ox=mx-(gest.mx-gest.ox)*f; S.oy=my-(gest.my-gest.oy)*f; clampView(); draw();
+  }else if(gest.type==="paint"){paint(cellAt(p));}
+  else if(gest.type==="one"){
+    if(!gest.moved&&Math.hypot(p.x-gest.sx,p.y-gest.sy)>6)gest.moved=true;
+    if(gest.moved){S.ox+=p.x-gest.lx;S.oy+=p.y-gest.ly;clampView();draw();}
+    gest.lx=p.x;gest.ly=p.y;
+  }
+});
+function finishPaint(){if(gest&&gest.op&&gest.op.cells.length){pushUndo(gest.op);afterMark(gest.op.cells[gest.op.cells.length-1]);}}
+function endPtr(e){
+  if(!ptrs.has(e.pointerId))return; ptrs.delete(e.pointerId);
+  if(!gest)return;
+  if(gest.type==="paint"){finishPaint();gest=null;return;}
+  if(gest.type==="pinch"){if(ptrs.size===1){const p=[...ptrs.values()][0];gest={type:"one",sx:p.x,sy:p.y,lx:p.x,ly:p.y,moved:true};}else gest=null;return;}
+  if(gest.type==="one"&&!gest.moved&&e.type==="pointerup"){tap(local(e));}
+  gest=null;
+}
+cv.addEventListener("pointerup",endPtr); cv.addEventListener("pointercancel",endPtr);
+cv.addEventListener("wheel",e=>{e.preventDefault();const p=local(e);zoomAt(p.x,p.y,Math.exp(-e.deltaY*0.0015));},{passive:false});
+
+function tap(p){
+  const i=cellAt(p); if(i<0)return;
+  if(S.mode==="stitch"){const op={cells:[i],prev:[S.done[i]]};S.done[i]=S.done[i]?0:1;pushUndo(op);afterMark(i);draw();}
+  else{setStatus(i);}
+}
+function setStatus(i){
+  const x=i%S.W+1,y=Math.floor(i/S.W)+1,c=S.colors[S.grid[i]];
+  $("status").innerHTML=`Клетка <b>${x}×${y}</b> · знак <b>${c.sym}</b> · DMC <b>${c.code}</b> ${c.name}${S.mode==="stitch"?(S.done[i]?" · вышито":" · не вышито"):""}`;
+}
+function pushUndo(op){S.undo.push(op);if(S.undo.length>100)S.undo.shift();$("undo").disabled=false;}
+$("undo").onclick=()=>{const op=S.undo.pop();if(!op)return;for(let k=op.cells.length-1;k>=0;k--)S.done[op.cells[k]]=op.prev[k];$("undo").disabled=!S.undo.length;afterMark();draw();};
+function afterMark(i){if(i!==undefined)setStatus(i);updateProgress();saveProject();}
+
+// ---------- UI ----------
+function readOpts(){return {w:+$("wIn").value,k:+$("kIn").value,aida:+$("aida").value,strands:+$("strands").value,clean:$("clean").checked}}
+function setMode(m){
+  S.mode=m; $("mChart").setAttribute("aria-pressed",m==="chart"); $("mStitch").setAttribute("aria-pressed",m==="stitch");
+  $("viewSeg").hidden=m==="stitch"; $("brush").hidden=m!=="stitch"; $("undo").hidden=m!=="stitch"; $("prog").hidden=m!=="stitch";
+  viewer.classList.toggle("stitch",m==="stitch");
+  $("status").textContent=m==="stitch"?"Нажмите на клетку, чтобы отметить крестик вышитым. «Кисть» — отмечать, проводя пальцем.":"Нажмите на клетку, чтобы узнать цвет. Сведите два пальца для масштаба.";
+  store.set("krestik.mode",m); renderLegend(); updateProgress(); draw();
+}
+$("mChart").onclick=()=>setMode("chart"); $("mStitch").onclick=()=>setMode("stitch");
+$("viewSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.view=b.dataset.v;[...$("viewSeg").children].forEach(x=>x.setAttribute("aria-pressed",x===b));draw();});
+$("brush").onclick=()=>{S.brush=!S.brush;$("brush").setAttribute("aria-pressed",S.brush);};
+$("zIn").onclick=()=>zoomAt(vw/2,vh/2,1.4); $("zOut").onclick=()=>zoomAt(vw/2,vh/2,1/1.4); $("zFit").onclick=fit;
+
+function skeins(n){const o=readOpts(),cell=25.4/o.aida,per=(2*Math.SQRT2+2)*cell*1.25;return n*per*o.strands/48000;}
+function counts(){const t=new Int32Array(S.colors.length),d=new Int32Array(S.colors.length);for(let i=0;i<S.grid.length;i++){t[S.grid[i]]++;if(S.done[i])d[S.grid[i]]++;}return {t,d}}
+function renderLegend(){
+  if(!S.grid)return; const o=readOpts(), {t,d}=counts(), st=S.mode==="stitch";
+  $("sStitch").textContent=(S.W*S.H).toLocaleString("ru-RU");
+  $("sSize").textContent=`${(S.W/o.aida*2.54).toFixed(1).replace(".",",")}×${(S.H/o.aida*2.54).toFixed(1).replace(".",",")}`;
+  $("sColors").textContent=S.colors.length;
+  $("legend").innerHTML=S.colors.map((c,i)=>{
+    const sk=skeins(t[i]), skTxt=Math.max(1,Math.ceil(sk));
+    const right=st?`${d[i]}/${t[i]}<small>${Math.round(d[i]/t[i]*100)}%</small>`:`${t[i]}<small>${skTxt} мот.</small>`;
+    const bar=st?`<span class="mini"><span style="width:${(d[i]/t[i]*100).toFixed(1)}%"></span></span>`:"";
+    return `<button class="leg" data-i="${i}" aria-pressed="${S.hl===i}"><span class="sw" style="background:${c.css};color:${c.ink}">${c.sym}</span><span class="code">${c.code}</span><span class="nm"><i>${c.name}</i>${bar}</span><span class="num">${right}</span></button>`;
+  }).join("");
+}
+$("legend").addEventListener("click",e=>{const b=e.target.closest(".leg");if(!b)return;const i=+b.dataset.i;S.hl=S.hl===i?-1:i;[...$("legend").children].forEach(x=>x.setAttribute("aria-pressed",+x.dataset.i===S.hl));draw();});
+let progT=0;
+function updateProgress(){
+  if(!S.grid)return; let n=0; for(let i=0;i<S.done.length;i++)n+=S.done[i];
+  const all=S.done.length; $("progFill").style.width=(n/all*100).toFixed(2)+"%";
+  $("progTxt").textContent=`${n.toLocaleString("ru-RU")} из ${all.toLocaleString("ru-RU")} · ${(n/all*100).toFixed(1).replace(".",",")}%`;
+  clearTimeout(progT); progT=setTimeout(renderLegend,150);
+}
+
+["wIn","kIn"].forEach(id=>$(id).addEventListener("input",()=>{$(id==="wIn"?"wOut":"kOut").textContent=$(id).value;saveSettings();}));
+["aida","strands","clean"].forEach(id=>$(id).addEventListener("change",()=>{saveSettings();renderLegend();}));
+
+function hasProgress(){if(!S.done)return false;for(let i=0;i<S.done.length;i++)if(S.done[i])return true;return false}
+function build(){
+  if(!srcImg)return; const btn=$("gen"); btn.disabled=true; btn.textContent="Строю схему…"; $("confirm").hidden=true;
+  setTimeout(()=>{
+    const r=generate(srcImg,readOpts());
+    Object.assign(S,r); S.done=new Uint8Array(r.W*r.H); S.hl=-1; S.undo=[]; $("undo").disabled=true;
+    btn.disabled=false; btn.textContent="Построить схему";
+    renderLegend(); updateProgress(); fit(); saveProject();
+  },30);
+}
+$("gen").onclick=()=>{if(hasProgress()){$("confirm").hidden=false;return;}build();};
+$("cYes").onclick=build; $("cNo").onclick=()=>{$("confirm").hidden=true};
+
+function setSource(img,name,isSample){
+  srcImg=img; srcName=name;
+  const c=document.createElement("canvas"),iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,s=Math.min(1,600/Math.max(iw,ih));
+  c.width=Math.round(iw*s); c.height=Math.round(ih*s); const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
+  srcData=c.toDataURL("image/jpeg",0.85); $("thumb").src=srcData;
+  $("srcName").innerHTML=isSample?'<span class="badge">Пример</span>':`<span>${name.replace(/[<>&]/g,"")}</span>`;
+  if(!isSample){store.set("krestik.src",JSON.stringify({name,data:srcData}));}
+}
+$("file").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  const rd=new FileReader(); rd.onload=()=>{const im=new Image();im.onload=()=>{setSource(im,f.name,false);$("gen").click();};im.onerror=()=>{$("status").textContent="Не получилось открыть файл. Выберите JPG или PNG.";};im.src=rd.result;}; rd.readAsDataURL(f);
+  e.target.value="";
+});
+
+// ---------- export as image ----------
+$("exportBtn").onclick=()=>{
+  if(!S.grid)return; const {W,H,grid,colors}=S;
+  const cs=Math.max(6,Math.min(24,Math.floor(3600/Math.max(W,H)))), m=Math.max(30,cs*2);
+  const cols=Math.max(1,Math.min(4,Math.floor((W*cs+2*m)/260))), rowH=34, lh=Math.ceil(colors.length/cols)*rowH+40;
+  const cw=W*cs+2*m, ch=H*cs+2*m+lh, c=document.createElement("canvas"); c.width=cw; c.height=ch; const x=c.getContext("2d");
+  x.fillStyle="#fff"; x.fillRect(0,0,cw,ch); x.textAlign="center"; x.textBaseline="middle";
+  x.font=`700 ${Math.floor(cs*0.62)}px system-ui,-apple-system,sans-serif`;
+  for(let y=0;y<H;y++)for(let i=0;i<W;i++){const col=colors[grid[y*W+i]];x.fillStyle=col.css;x.fillRect(m+i*cs,m+y*cs,cs,cs);if(cs>=9){x.fillStyle=col.ink;x.fillText(col.sym,m+i*cs+cs/2,m+y*cs+cs/2+1);}}
+  x.strokeStyle="rgba(0,0,0,.2)"; x.lineWidth=1; x.beginPath();
+  for(let i=0;i<=W;i++){x.moveTo(m+i*cs+.5,m);x.lineTo(m+i*cs+.5,m+H*cs);} for(let y=0;y<=H;y++){x.moveTo(m,m+y*cs+.5);x.lineTo(m+W*cs,m+y*cs+.5);} x.stroke();
+  x.strokeStyle="rgba(0,0,0,.75)"; x.lineWidth=2; x.beginPath();
+  for(let i=0;i<=W;i+=10){x.moveTo(m+i*cs,m);x.lineTo(m+i*cs,m+H*cs);} for(let y=0;y<=H;y+=10){x.moveTo(m,m+y*cs);x.lineTo(m+W*cs,m+y*cs);} x.stroke(); x.strokeRect(m,m,W*cs,H*cs);
+  x.fillStyle="#555"; x.font="12px ui-monospace,Menlo,monospace";
+  for(let i=10;i<=W;i+=10)x.fillText(String(i),m+i*cs,m-12); for(let y=10;y<=H;y+=10)x.fillText(String(y),m-16,m+y*cs);
+  x.fillStyle="#b3202d"; x.beginPath(); x.moveTo(m+W*cs/2-6,m-24);x.lineTo(m+W*cs/2+6,m-24);x.lineTo(m+W*cs/2,m-16);x.fill();
+  x.beginPath(); x.moveTo(m-28,m+H*cs/2-6);x.lineTo(m-28,m+H*cs/2+6);x.lineTo(m-20,m+H*cs/2);x.fill();
+  const {t}=counts(), ly=H*cs+2*m, colW=(cw-2*m)/cols; x.textAlign="left";
+  x.fillStyle="#222"; x.font="600 14px system-ui,sans-serif"; x.fillText(`${W}×${H} крестиков · Аида ${readOpts().aida} · ${colors.length} цв. DMC`,m,ly);
+  colors.forEach((col,i)=>{const cx=m+(i%cols)*colW, cy=ly+28+Math.floor(i/cols)*rowH;
+    x.fillStyle=col.css; x.fillRect(cx,cy-12,24,24); x.strokeStyle="rgba(0,0,0,.3)"; x.lineWidth=1; x.strokeRect(cx+.5,cy-11.5,23,23);
+    x.fillStyle=col.ink; x.textAlign="center"; x.font="700 14px system-ui,sans-serif"; x.fillText(col.sym,cx+12,cy+1);
+    x.textAlign="left"; x.fillStyle="#222"; x.font="600 13px ui-monospace,Menlo,monospace"; x.fillText(col.code,cx+32,cy);
+    x.fillStyle="#666"; x.font="12px system-ui,sans-serif"; x.fillText(`${t[i]} кр.`,cx+90,cy);});
+  $("sheetImg").src=c.toDataURL("image/png"); $("sheet").hidden=false;
+};
+$("sheetClose").onclick=()=>{$("sheet").hidden=true};
+
+// ---------- boot ----------
+readTheme();
+new ResizeObserver(resize).observe(viewer);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{readTheme();draw();});
+new MutationObserver(()=>{readTheme();draw();}).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+try{const st=JSON.parse(store.get("krestik.settings")||"null");if(st){$("wIn").value=st.w;$("kIn").value=st.k;$("aida").value=st.aida;$("strands").value=st.strands;$("clean").checked=!!st.clean;$("wOut").textContent=st.w;$("kOut").textContent=st.k;}}catch(e){}
+let restored=false;
+try{const s=JSON.parse(store.get("krestik.src")||"null");if(s){const im=new Image();im.onload=()=>{srcImg=im;if(!S.grid)build();};im.src=s.data;$("thumb").src=s.data;$("srcName").innerHTML=`<span>${String(s.name).replace(/[<>&]/g,"")}</span>`;restored=true;}}catch(e){}
+if(!restored) setSource(sampleImage(),"Пример",true);
+const hadProject=loadProject();
+requestAnimationFrame(()=>{
+  resize();
+  if(hadProject){renderLegend();updateProgress();fit();}
+  else build();
+  const m=store.get("krestik.mode"); if(m==="stitch") setMode("stitch");
+});
+})();
+</script>
+
+</body>
+</html>
