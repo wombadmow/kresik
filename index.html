@@ -550,30 +550,54 @@ function updateProgress(){
 
 function hasProgress(){if(!S.done)return false;for(let i=0;i<S.done.length;i++)if(S.done[i])return true;return false}
 function build(){
-  if(!srcImg)return; const btn=$("gen"); btn.disabled=true; btn.textContent="Строю схему…"; $("confirm").hidden=true;
+  if(!srcImg){$("status").textContent="Фото ещё загружается, подождите секунду.";return;}
+  const btn=$("gen"); btn.disabled=true; btn.textContent="Строю схему…"; $("confirm").hidden=true;
   setTimeout(()=>{
-    const r=generate(srcImg,readOpts());
-    Object.assign(S,r); S.done=new Uint8Array(r.W*r.H); S.hl=-1; S.undo=[]; $("undo").disabled=true;
+    try{
+      const r=generate(srcImg,readOpts());
+      Object.assign(S,r); S.done=new Uint8Array(r.W*r.H); S.hl=-1; S.undo=[]; $("undo").disabled=true;
+      renderLegend(); updateProgress(); fit(); saveProject();
+      $("status").textContent="Схема готова.";
+    }catch(err){$("status").textContent="Не получилось построить схему из этого фото. Попробуйте другое фото или меньшую ширину.";}
     btn.disabled=false; btn.textContent="Построить схему";
-    renderLegend(); updateProgress(); fit(); saveProject();
   },30);
 }
-$("gen").onclick=()=>{if(hasProgress()){$("confirm").hidden=false;return;}build();};
+function askBuild(){
+  if(hasProgress()){
+    $("confirm").hidden=false;
+    $("status").textContent="Фото выбрано. Подтвердите построение новой схемы в настройках.";
+    try{$("confirm").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){}
+    return;
+  }
+  build();
+}
+$("gen").onclick=askBuild;
 $("cYes").onclick=build; $("cNo").onclick=()=>{$("confirm").hidden=true};
 
 function setSource(img,name,isSample){
   srcImg=img; srcName=name;
-  const c=document.createElement("canvas"),iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,s=Math.min(1,600/Math.max(iw,ih));
+  const c=document.createElement("canvas"),iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,s=Math.min(1,1200/Math.max(iw,ih));
   c.width=Math.round(iw*s); c.height=Math.round(ih*s); const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); x.drawImage(img,0,0,c.width,c.height);
-  srcData=c.toDataURL("image/jpeg",0.85); $("thumb").src=srcData;
+  srcData=c.toDataURL("image/jpeg",0.88); $("thumb").src=srcData;
   $("srcName").innerHTML=isSample?'<span class="badge">Пример</span>':`<span>${name.replace(/[<>&]/g,"")}</span>`;
   if(!isSample){store.set("krestik.src",JSON.stringify({name,data:srcData}));}
 }
-$("file").addEventListener("change",e=>{
-  const f=e.target.files&&e.target.files[0]; if(!f)return;
-  const rd=new FileReader(); rd.onload=()=>{const im=new Image();im.onload=()=>{setSource(im,f.name,false);$("gen").click();};im.onerror=()=>{$("status").textContent="Не получилось открыть файл. Выберите JPG или PNG.";};im.src=rd.result;}; rd.readAsDataURL(f);
-  e.target.value="";
-});
+function onFile(e){
+  const inp=e.target, f=inp.files&&inp.files[0];
+  // swap in a fresh input so iOS fires "change" again for the next photo
+  const fresh=inp.cloneNode(); fresh.addEventListener("change",onFile); inp.replaceWith(fresh);
+  if(!f)return;
+  $("status").textContent="Загружаю фото…";
+  const url=URL.createObjectURL(f), im=new Image();
+  im.onload=()=>{
+    try{setSource(im,f.name,false);}catch(err){}
+    URL.revokeObjectURL(url);
+    const small=new Image(); small.onload=()=>{srcImg=small;askBuild();}; small.onerror=()=>{askBuild();}; small.src=srcData;
+  };
+  im.onerror=()=>{URL.revokeObjectURL(url);$("status").textContent="Не получилось открыть этот файл. Выберите фото в формате JPG или PNG.";};
+  im.src=url;
+}
+$("file").addEventListener("change",onFile);
 
 // ---------- export as image ----------
 $("exportBtn").onclick=()=>{
